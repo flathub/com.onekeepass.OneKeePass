@@ -12,14 +12,17 @@
 id: com.onekeepass.OneKeePass
 
 runtime: org.gnome.Platform
-runtime-version: '50'
+runtime-version: '51'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
   - org.freedesktop.Sdk.Extension.openjdk21
-  - org.freedesktop.Sdk.Extension.node20
+  - org.freedesktop.Sdk.Extension.node22
 
-command: OneKeePass
+# Not the app binary: a Flatpak has one command, and a browser launching the native
+# messaging proxy can only reach it through this one. The wrapper dispatches on the
+# browser's argv and otherwise runs the app.
+command: onekeepass-wrapper
 
 # The compiled ClojureScript is handed from the frontend module to the Rust module
 # through /app (see onekeepass-cljs below); strip it from the finished app.
@@ -36,10 +39,17 @@ finish-args:
   # Remote storage (SFTP/WebDAV) and favicon fetch
   - --share=network
 
-  # No --filesystem grant on purpose. Database files come through the XDG document
-  # portal; opening, saving and the recent-databases list all work through it, because
-  # the document id stays stable across restarts.
+  # Browser integration. Registering with a browser means writing a native messaging
+  # manifest into that browser's own configuration directory, and these three are the
+  # only directories the app touches outside its own data.
+  - --filesystem=~/.mozilla/native-messaging-hosts:create
+  - --filesystem=~/.config/google-chrome/NativeMessagingHosts:create
+  - --filesystem=~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts:create
 
+  # No --filesystem grant for databases on purpose. Database files come through the XDG
+  # document portal; opening, saving and the recent-databases list all work through it,
+  # because the document id stays stable across restarts.
+  
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
   env:
@@ -56,8 +66,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/OneKeePass/desktop.git
-        tag: v0.26.0
-        commit: 4058645ba082a774d32fb32a684d067cf89d9966
+        tag: v0.27.0
+        commit: 114bf971a5d8659ff0c0cf702773c521dfa3392d
       # Vendored crates plus the cargo config that redirects crates.io to them.
       # Generated from onekeepass-proxy/Cargo.lock.
       - linux/proxy-cargo-sources.json
@@ -70,7 +80,7 @@ modules:
   - name: onekeepass-cljs
     buildsystem: simple
     build-options:
-      append-path: /usr/lib/sdk/openjdk21/bin:/usr/lib/sdk/node20/bin
+      append-path: /usr/lib/sdk/openjdk21/bin:/usr/lib/sdk/node22/bin
       env:
         # Yarn requires a writable home and cache during the build.
         HOME: /run/build/onekeepass-cljs
@@ -80,8 +90,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/OneKeePass/desktop.git
-        tag: v0.26.0
-        commit: 4058645ba082a774d32fb32a684d067cf89d9966
+        tag: v0.27.0
+        commit: 114bf971a5d8659ff0c0cf702773c521dfa3392d
       # Yarn is not included in the Node SDK extension, so provide it as a pinned source.
       - type: archive
         url: https://registry.npmjs.org/yarn/-/yarn-1.22.22.tgz
@@ -124,8 +134,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/OneKeePass/desktop.git
-        tag: v0.26.0
-        commit: 4058645ba082a774d32fb32a684d067cf89d9966
+        tag: v0.27.0
+        commit: 114bf971a5d8659ff0c0cf702773c521dfa3392d
       # Vendored crates plus the cargo config that redirects crates.io — and the
       # onekeepass-core git dependency — to them. Generated from src-tauri/Cargo.lock.
       - linux/cargo-sources.json
@@ -158,8 +168,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/OneKeePass/desktop.git
-        tag: v0.26.0
-        commit: 4058645ba082a774d32fb32a684d067cf89d9966
+        tag: v0.27.0
+        commit: 114bf971a5d8659ff0c0cf702773c521dfa3392d
     build-commands:
       # Installs the Tauri resources, desktop entry, metainfo, icons and licence into
       # /app. The layout is Tauri's own and is easy to get subtly wrong, so it lives in
